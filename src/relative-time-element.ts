@@ -107,6 +107,7 @@ export class RelativeTimeElement extends HTMLElement implements Intl.DateTimeFor
       'precision',
       'format',
       'format-style',
+      'no-title',
       'datetime',
       'lang',
       'title',
@@ -382,6 +383,14 @@ export class RelativeTimeElement extends HTMLElement implements Intl.DateTimeFor
     this.setAttribute('format-style', value)
   }
 
+  get noTitle(): boolean {
+    return this.hasAttribute('no-title')
+  }
+
+  set noTitle(value: boolean | undefined) {
+    this.toggleAttribute('no-title', value)
+  }
+
   get datetime() {
     return this.getAttribute('datetime') || ''
   }
@@ -433,7 +442,7 @@ export class RelativeTimeElement extends HTMLElement implements Intl.DateTimeFor
     const now = Date.now()
     if (!this.#customTitle) {
       newTitle = this.#getFormattedTitle(date) || ''
-      if (newTitle) this.setAttribute('title', newTitle)
+      if (newTitle && !this.noTitle) this.setAttribute('title', newTitle)
     }
 
     const duration = elapsedTime(date, this.precision, now)

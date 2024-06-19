@@ -83,6 +83,14 @@ suite('relative-time', function () {
     assert.equal(el.getAttribute('title'), text)
   })
 
+  test('does not set title if no-title attribute is present', async () => {
+    const el = document.createElement('relative-time')
+    el.setAttribute('datetime', new Date().toISOString())
+    el.setAttribute('no-title', '')
+    await Promise.resolve()
+    assert.equal(el.getAttribute('title'), null)
+  })
+
   test('shadowDOM reflects textContent with invalid date', async () => {
     const el = document.createElement('relative-time')
     el.textContent = 'A date string'
@@ -472,6 +480,24 @@ suite('relative-time', function () {
       time.setAttribute('datetime', '2023-06-01T00:00:00Z')
       await Promise.resolve()
       assert.equal(time.shadowRoot.textContent, '4 months ago')
+    })
+
+    test('rewrites from last few days of month to smaller last month', async () => {
+      freezeTime(new Date(2024, 4, 31))
+      const time = document.createElement('relative-time')
+      time.setAttribute('tense', 'past')
+      time.setAttribute('datetime', '2024-04-30T00:00:00Z')
+      await Promise.resolve()
+      assert.equal(time.shadowRoot.textContent, 'last month')
+    })
+
+    test('rewrites from last few days of month to smaller previous month', async () => {
+      freezeTime(new Date(2024, 4, 31))
+      const time = document.createElement('relative-time')
+      time.setAttribute('tense', 'past')
+      time.setAttribute('datetime', '2024-02-29T00:00:00Z')
+      await Promise.resolve()
+      assert.equal(time.shadowRoot.textContent, '3 months ago')
     })
 
     test('micro formats years', async () => {
