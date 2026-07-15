@@ -1,5 +1,6 @@
 import {assert} from '@open-wc/testing'
 import {applyDuration, Duration, elapsedTime, getRelativeTimeUnit, roundToSingleUnit} from '../src/duration.ts'
+import type {DurationFormatOptions} from '../src/duration-format-ponyfill.ts'
 import {Temporal} from '@js-temporal/polyfill'
 
 suite('duration', function () {
@@ -500,5 +501,27 @@ suite('duration', function () {
         )
       })
     }
+  })
+
+  suite('toLocaleString', () => {
+    test('keys cached formatters by recognized options, ignoring caller-defined toJSON', () => {
+      const duration = Duration.from('PT8S')
+      // A caller-supplied `toJSON` must not influence the cache key; otherwise a
+      // `long` formatter could be cached under the key used for `short` options.
+      const long = duration.toLocaleString('en', {
+        style: 'long',
+        toJSON: () => ({style: 'short'}),
+      } as unknown as DurationFormatOptions)
+      const short = duration.toLocaleString('en', {style: 'short'})
+      assert.equal(long, '8 seconds')
+      assert.equal(short, '8 sec')
+    })
+
+    test('does not throw on circular option structures', () => {
+      const duration = Duration.from('PT8S')
+      const opts: Record<string, unknown> = {style: 'long'}
+      opts.self = opts
+      assert.doesNotThrow(() => duration.toLocaleString('en', opts as unknown as DurationFormatOptions))
+    })
   })
 })

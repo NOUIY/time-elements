@@ -1,5 +1,5 @@
 import type {Duration} from './duration.js'
-import {numberFormat} from './intl-cache.js'
+import {numberFormat, createCache} from './intl-cache.js'
 
 class ListFormatPonyFill {
   formatToParts(members: Iterable<string>) {
@@ -20,7 +20,7 @@ const ListFormat = ((typeof Intl !== 'undefined' &&
   ListFormatPonyFill) as {new (locale?: string, options?: {type: string; style: string}): ListFormatter}
 
 // Reuse one list formatter per (locale, options) combination.
-const listFormats = new Map<string, ListFormatter>()
+const listFormats = createCache<ListFormatter>()
 function listFormat(locale: string, options: {type: string; style: string}): ListFormatter {
   const key = `${locale}\u0000${JSON.stringify(options)}`
   let format = listFormats.get(key)

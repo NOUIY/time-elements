@@ -89,6 +89,15 @@ function isBrowser12hCycle(): boolean {
   return browser12hCycle
 }
 
+// The resolved hour-cycle preference can change when the host locale changes, so
+// drop the memoized value on `languagechange` (cached `Intl` formatters are
+// invalidated separately in intl-cache).
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('languagechange', () => {
+    browser12hCycle = undefined
+  })
+}
+
 const dateObserver = new (class {
   elements: Set<RelativeTimeElement> = new Set()
   time = Infinity
@@ -146,8 +155,9 @@ export class RelativeTimeElement extends HTMLElement implements Intl.DateTimeFor
 
   get #lang() {
     const lang = this.closest('[lang]')?.getAttribute('lang') || this.ownerDocument.documentElement.getAttribute('lang')
+    if (!lang) return 'default'
     try {
-      return intlLocale(lang ?? '').toString()
+      return intlLocale(lang).toString()
     } catch {
       return 'default'
     }
