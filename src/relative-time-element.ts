@@ -383,8 +383,8 @@ export class RelativeTimeElement extends HTMLElement implements Intl.DateTimeFor
       root.replaceChildren(span)
     }
     if (ariaHidden) {
-      span.setAttribute('aria-hidden', 'true')
-    } else {
+      if (span.getAttribute('aria-hidden') !== 'true') span.setAttribute('aria-hidden', 'true')
+    } else if (span.hasAttribute('aria-hidden')) {
       span.removeAttribute('aria-hidden')
     }
     if (span.textContent !== content) {

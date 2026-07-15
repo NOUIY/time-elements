@@ -141,6 +141,66 @@ suite('relative-time', function () {
     assert.notEqual(rootAfter.textContent, text, 'text should have changed')
   })
 
+  test('emits no shadow-root mutations on a no-op update', async () => {
+    const el = document.createElement('relative-time')
+    el.setAttribute('datetime', new Date(Date.now() - 3 * 60 * 1000).toISOString())
+    fixture.append(el)
+    await Promise.resolve()
+
+    const records = []
+    const observer = new MutationObserver(mutations => records.push(...mutations))
+    observer.observe(el.shadowRoot, {subtree: true, childList: true, characterData: true, attributes: true})
+    try {
+      el.update()
+      await Promise.resolve()
+    } finally {
+      observer.disconnect()
+    }
+    assert.deepEqual(records, [], 'a no-op update must not mutate the shadow root')
+  })
+
+  test('emits no shadow-root mutations on a no-op update when aria-hidden', async () => {
+    const el = document.createElement('relative-time')
+    el.setAttribute('aria-hidden', 'true')
+    el.setAttribute('datetime', new Date(Date.now() - 3 * 60 * 1000).toISOString())
+    fixture.append(el)
+    await Promise.resolve()
+    const span = el.shadowRoot.querySelector('[part="root"]')
+    assert.equal(span.getAttribute('aria-hidden'), 'true', 'aria-hidden should be mirrored onto the span')
+
+    const records = []
+    const observer = new MutationObserver(mutations => records.push(...mutations))
+    observer.observe(el.shadowRoot, {subtree: true, childList: true, characterData: true, attributes: true})
+    try {
+      el.update()
+      await Promise.resolve()
+    } finally {
+      observer.disconnect()
+    }
+    assert.deepEqual(records, [], 'a no-op update must not rewrite aria-hidden or text')
+  })
+
+  test('does not rewrite the title attribute on a no-op update', async () => {
+    const el = document.createElement('relative-time')
+    el.setAttribute('datetime', new Date(Date.now() - 3 * 60 * 1000).toISOString())
+    fixture.append(el)
+    await Promise.resolve()
+    const title = el.getAttribute('title')
+    assert.ok(title, 'expected a formatted title to be set')
+
+    const records = []
+    const observer = new MutationObserver(mutations => records.push(...mutations))
+    observer.observe(el, {attributes: true, attributeFilter: ['title']})
+    try {
+      el.update()
+      await Promise.resolve()
+    } finally {
+      observer.disconnect()
+    }
+    assert.deepEqual(records, [], 'an unchanged formatted title must not be written again')
+    assert.equal(el.getAttribute('title'), title)
+  })
+
   test('calls update even after nullish datetime', async () => {
     const el = document.createElement('relative-time')
     el.setAttribute('datetime', '')
