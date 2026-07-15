@@ -164,7 +164,11 @@ export class RelativeTimeElement extends HTMLElement implements Intl.DateTimeFor
     return isBrowser12hCycle() ? 'h12' : 'h23'
   }
 
-  #renderRoot: Node = this.shadowRoot ? this.shadowRoot : this.attachShadow ? this.attachShadow({mode: 'open'}) : this
+  #renderRoot: Node & ParentNode = this.shadowRoot
+    ? this.shadowRoot
+    : this.attachShadow
+    ? this.attachShadow({mode: 'open'})
+    : this
 
   static get observedAttributes() {
     return [
@@ -364,28 +368,28 @@ export class RelativeTimeElement extends HTMLElement implements Intl.DateTimeFor
   }
 
   #updateRenderRootContent(content: string | null): void {
-    const root = this.#renderRoot as Element
+    const root = this.#renderRoot
     const ariaHidden = this.hasAttribute('aria-hidden') && this.getAttribute('aria-hidden') === 'true'
-    // Avoid dirtying the DOM (and invalidating layout) when nothing has changed.
+    // Reuse the existing `part="root"` span across ticks and mutate it in place.
+    // Reading the DOM tree/attributes below does not force style or layout recalc
+    // (unlike geometry reads such as offsetWidth or innerText), so the only cost
+    // that matters is the write — which we skip when nothing actually changed.
     // This is common on periodic ticks where the rendered text is identical to
     // the previous tick (e.g. an item that still reads "3mo").
-    const current = root.firstElementChild
-    if (
-      current &&
-      root.childNodes.length === 1 &&
-      current.getAttribute('part') === 'root' &&
-      current.textContent === content &&
-      (current.getAttribute('aria-hidden') === 'true') === ariaHidden
-    ) {
-      return
+    let span = root.firstElementChild
+    if (!span || span.getAttribute('part') !== 'root' || root.childNodes.length !== 1) {
+      span = document.createElement('span')
+      span.setAttribute('part', 'root')
+      root.replaceChildren(span)
     }
-    const span = document.createElement('span')
-    span.setAttribute('part', 'root')
     if (ariaHidden) {
       span.setAttribute('aria-hidden', 'true')
+    } else {
+      span.removeAttribute('aria-hidden')
     }
-    span.textContent = content
-    root.replaceChildren(span)
+    if (span.textContent !== content) {
+      span.textContent = content
+    }
   }
 
   #shouldDisplayUserPreferredAbsoluteTime(format: ResolvedFormat): boolean {

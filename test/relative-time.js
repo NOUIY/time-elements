@@ -126,7 +126,7 @@ suite('relative-time', function () {
     assert.equal(rootAfter.textContent, text)
   })
 
-  test('rebuilds the render root when the displayed text changes', async () => {
+  test('reuses the render root node and updates text in place when the display changes', async () => {
     const el = document.createElement('relative-time')
     el.setAttribute('datetime', new Date(Date.now() - 3 * 60 * 1000).toISOString())
     fixture.append(el)
@@ -137,6 +137,7 @@ suite('relative-time', function () {
     el.setAttribute('datetime', new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString())
     await Promise.resolve()
     const rootAfter = el.shadowRoot.querySelector('[part="root"]')
+    assert.equal(rootAfter, root, 'render root node should be reused across a text change')
     assert.notEqual(rootAfter.textContent, text, 'text should have changed')
   })
 
