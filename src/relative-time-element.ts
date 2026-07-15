@@ -364,13 +364,28 @@ export class RelativeTimeElement extends HTMLElement implements Intl.DateTimeFor
   }
 
   #updateRenderRootContent(content: string | null): void {
+    const root = this.#renderRoot as Element
+    const ariaHidden = this.hasAttribute('aria-hidden') && this.getAttribute('aria-hidden') === 'true'
+    // Avoid dirtying the DOM (and invalidating layout) when nothing has changed.
+    // This is common on periodic ticks where the rendered text is identical to
+    // the previous tick (e.g. an item that still reads "3mo").
+    const current = root.firstElementChild
+    if (
+      current &&
+      root.childNodes.length === 1 &&
+      current.getAttribute('part') === 'root' &&
+      current.textContent === content &&
+      (current.getAttribute('aria-hidden') === 'true') === ariaHidden
+    ) {
+      return
+    }
     const span = document.createElement('span')
     span.setAttribute('part', 'root')
-    if (this.hasAttribute('aria-hidden') && this.getAttribute('aria-hidden') === 'true') {
+    if (ariaHidden) {
       span.setAttribute('aria-hidden', 'true')
     }
     span.textContent = content
-    ;(this.#renderRoot as Element).replaceChildren(span)
+    root.replaceChildren(span)
   }
 
   #shouldDisplayUserPreferredAbsoluteTime(format: ResolvedFormat): boolean {
@@ -626,7 +641,7 @@ export class RelativeTimeElement extends HTMLElement implements Intl.DateTimeFor
     const now = Date.now()
     if (!this.#customTitle) {
       newTitle = this.#getFormattedTitle(date) || ''
-      if (newTitle && !this.noTitle) this.setAttribute('title', newTitle)
+      if (newTitle && !this.noTitle && newTitle !== oldTitle) this.setAttribute('title', newTitle)
     }
 
     const duration = elapsedTime(date, this.precision, now)

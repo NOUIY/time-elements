@@ -109,6 +109,37 @@ suite('relative-time', function () {
     assert.equal(counter, 1)
   })
 
+  test('does not rebuild the render root when the displayed text is unchanged', async () => {
+    const el = document.createElement('relative-time')
+    el.setAttribute('datetime', new Date(Date.now() - 3 * 60 * 1000).toISOString())
+    fixture.append(el)
+    await Promise.resolve()
+    const root = el.shadowRoot.querySelector('[part="root"]')
+    assert.ok(root, 'expected a rendered [part="root"] element')
+    const text = root.textContent
+
+    // A subsequent update that produces the same text must not replace the node.
+    el.update()
+    await Promise.resolve()
+    const rootAfter = el.shadowRoot.querySelector('[part="root"]')
+    assert.equal(rootAfter, root, 'render root node should be reused when text is unchanged')
+    assert.equal(rootAfter.textContent, text)
+  })
+
+  test('rebuilds the render root when the displayed text changes', async () => {
+    const el = document.createElement('relative-time')
+    el.setAttribute('datetime', new Date(Date.now() - 3 * 60 * 1000).toISOString())
+    fixture.append(el)
+    await Promise.resolve()
+    const root = el.shadowRoot.querySelector('[part="root"]')
+    const text = root.textContent
+
+    el.setAttribute('datetime', new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString())
+    await Promise.resolve()
+    const rootAfter = el.shadowRoot.querySelector('[part="root"]')
+    assert.notEqual(rootAfter.textContent, text, 'text should have changed')
+  })
+
   test('calls update even after nullish datetime', async () => {
     const el = document.createElement('relative-time')
     el.setAttribute('datetime', '')
