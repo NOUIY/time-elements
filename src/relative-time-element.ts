@@ -8,6 +8,7 @@ import {
   Unit,
   unitNames,
 } from './duration.js'
+import {dateTimeFormat, relativeTimeFormat, getLocale as intlLocale} from './intl-cache.js'
 const HTMLElement = globalThis.HTMLElement || (null as unknown as typeof window['HTMLElement'])
 
 export type DeprecatedFormat = 'auto' | 'micro' | 'elapsed'
@@ -74,13 +75,18 @@ function getExplicitThreshold(el: RelativeTimeElement): string | null {
 }
 
 // Determine whether the user has a 12 (vs. 24) hour cycle preference via the
-// browser's resolved DateTimeFormat options.
+// browser's resolved DateTimeFormat options. The result is environment-constant,
+// so it is computed once and memoized.
+let browser12hCycle: boolean | undefined
 function isBrowser12hCycle(): boolean {
-  try {
-    return new Intl.DateTimeFormat([], {hour: 'numeric'}).resolvedOptions().hour12 === true
-  } catch {
-    return false
+  if (browser12hCycle === undefined) {
+    try {
+      browser12hCycle = new Intl.DateTimeFormat([], {hour: 'numeric'}).resolvedOptions().hour12 === true
+    } catch {
+      browser12hCycle = false
+    }
   }
+  return browser12hCycle
 }
 
 const dateObserver = new (class {
@@ -141,7 +147,7 @@ export class RelativeTimeElement extends HTMLElement implements Intl.DateTimeFor
   get #lang() {
     const lang = this.closest('[lang]')?.getAttribute('lang') || this.ownerDocument.documentElement.getAttribute('lang')
     try {
-      return new Intl.Locale(lang ?? '').toString()
+      return intlLocale(lang ?? '').toString()
     } catch {
       return 'default'
     }
@@ -202,7 +208,7 @@ export class RelativeTimeElement extends HTMLElement implements Intl.DateTimeFor
   //
   // Returns a formatted time String.
   #getFormattedTitle(date: Date): string | undefined {
-    return new Intl.DateTimeFormat(this.#lang, {
+    return dateTimeFormat(this.#lang, {
       day: 'numeric',
       month: 'short',
       year: 'numeric',
@@ -253,7 +259,7 @@ export class RelativeTimeElement extends HTMLElement implements Intl.DateTimeFor
   }
 
   #getMicroRelativeFormat(duration: Duration): string {
-    const relativeFormat = new Intl.RelativeTimeFormat(this.#lang, {
+    const relativeFormat = relativeTimeFormat(this.#lang, {
       numeric: 'always',
       style: 'narrow',
     })
@@ -282,7 +288,7 @@ export class RelativeTimeElement extends HTMLElement implements Intl.DateTimeFor
   }
 
   #getRelativeFormat(duration: Duration): string {
-    const relativeFormat = new Intl.RelativeTimeFormat(this.#lang, {
+    const relativeFormat = relativeTimeFormat(this.#lang, {
       numeric: 'auto',
       style: this.formatStyle,
     })
@@ -297,7 +303,7 @@ export class RelativeTimeElement extends HTMLElement implements Intl.DateTimeFor
   }
 
   #getDateTimeFormat(date: Date): string {
-    const formatter = new Intl.DateTimeFormat(this.#lang, {
+    const formatter = dateTimeFormat(this.#lang, {
       second: this.second,
       minute: this.minute,
       hour: this.hour,
@@ -314,7 +320,7 @@ export class RelativeTimeElement extends HTMLElement implements Intl.DateTimeFor
 
   #isToday(date: Date): boolean {
     const now = new Date()
-    const formatter = new Intl.DateTimeFormat(this.#lang, {
+    const formatter = dateTimeFormat(this.#lang, {
       timeZone: this.timeZone,
       year: 'numeric',
       month: '2-digit',
@@ -325,7 +331,7 @@ export class RelativeTimeElement extends HTMLElement implements Intl.DateTimeFor
 
   #isCurrentYear(date: Date): boolean {
     const now = new Date()
-    const formatter = new Intl.DateTimeFormat(this.#lang, {
+    const formatter = dateTimeFormat(this.#lang, {
       timeZone: this.timeZone,
       year: 'numeric',
     })
@@ -345,10 +351,10 @@ export class RelativeTimeElement extends HTMLElement implements Intl.DateTimeFor
     }
 
     if (this.#isToday(date)) {
-      const relativeFormatter = new Intl.RelativeTimeFormat(this.#lang, {numeric: 'auto'})
+      const relativeFormatter = relativeTimeFormat(this.#lang, {numeric: 'auto'})
       let todayText = relativeFormatter.format(0, 'day')
       todayText = todayText.charAt(0).toLocaleUpperCase(this.#lang) + todayText.slice(1)
-      const timeOnly = new Intl.DateTimeFormat(this.#lang, timeOnlyOptions).format(date)
+      const timeOnly = dateTimeFormat(this.#lang, timeOnlyOptions).format(date)
 
       return `${todayText} ${timeOnly}`
     }
@@ -359,9 +365,9 @@ export class RelativeTimeElement extends HTMLElement implements Intl.DateTimeFor
       month: 'short',
     }
     if (this.#isCurrentYear(date)) {
-      return new Intl.DateTimeFormat(this.#lang, timeAndDateOptions).format(date)
+      return dateTimeFormat(this.#lang, timeAndDateOptions).format(date)
     }
-    return new Intl.DateTimeFormat(this.#lang, {
+    return dateTimeFormat(this.#lang, {
       ...timeAndDateOptions,
       year: 'numeric',
     }).format(date)

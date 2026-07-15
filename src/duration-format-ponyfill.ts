@@ -1,4 +1,5 @@
 import type {Duration} from './duration.js'
+import {numberFormat} from './intl-cache.js'
 
 class ListFormatPonyFill {
   formatToParts(members: Iterable<string>) {
@@ -10,8 +11,22 @@ class ListFormatPonyFill {
     return parts.slice(0, -1)
   }
 }
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const ListFormat = (typeof Intl !== 'undefined' && (Intl as any).ListFormat) || ListFormatPonyFill
+interface ListFormatter {
+  formatToParts(members: Iterable<string>): DurationPart[]
+}
+const ListFormat = ((typeof Intl !== 'undefined' &&
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (Intl as any).ListFormat) ||
+  ListFormatPonyFill) as {new (locale?: string, options?: {type: string; style: string}): ListFormatter}
+
+// Reuse one list formatter per (locale, options) combination.
+const listFormats = new Map<string, ListFormatter>()
+function listFormat(locale: string, options: {type: string; style: string}): ListFormatter {
+  const key = `${locale}\u0000${JSON.stringify(options)}`
+  let format = listFormats.get(key)
+  if (!format) listFormats.set(key, (format = new ListFormat(locale, options)))
+  return format
+}
 
 // https://tc39.es/proposal-intl-duration-format/
 interface DurationFormatResolvedOptions {
@@ -111,7 +126,7 @@ export default class DurationFormat {
           ? {}
           : {style: 'unit' as const, unit: nfUnit, unitDisplay: unitStyle}
 
-      let formattedValue = new Intl.NumberFormat(locale, nfOpts).format(value)
+      let formattedValue = numberFormat(locale, nfOpts).format(value)
 
       // Custom handling for narrow month formatting to use "mo" instead of "m"
       if (unit === 'months' && (unitStyle === 'narrow' || (style === 'narrow' && formattedValue.endsWith('m')))) {
@@ -120,7 +135,7 @@ export default class DurationFormat {
 
       list.push(formattedValue)
     }
-    return new ListFormat(locale, {
+    return listFormat(locale, {
       type: 'unit',
       style: style === 'digital' ? 'short' : style,
     }).formatToParts(list)

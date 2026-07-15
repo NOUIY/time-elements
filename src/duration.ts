@@ -1,6 +1,10 @@
 import DurationFormat from './duration-format-ponyfill.js'
 import type {DurationFormatOptions} from './duration-format-ponyfill.js'
 const durationRe = /^[-+]?P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/
+
+// `DurationFormat` normalizes its options on construction, so reuse one instance
+// per (locale, options) combination rather than rebuilding it on every format.
+const durationFormats = new Map<string, DurationFormat>()
 export const unitNames = ['year', 'month', 'week', 'day', 'hour', 'minute', 'second', 'millisecond'] as const
 export type Unit = typeof unitNames[number]
 
@@ -80,7 +84,10 @@ export class Duration {
   }
 
   toLocaleString(locale: string, opts: DurationFormatOptions) {
-    return new DurationFormat(locale, opts).format(this)
+    const key = `${locale}\u0000${JSON.stringify(opts)}`
+    let format = durationFormats.get(key)
+    if (!format) durationFormats.set(key, (format = new DurationFormat(locale, opts)))
+    return format.format(this)
   }
 }
 
