@@ -1,6 +1,44 @@
 import DurationFormat from './duration-format-ponyfill.js'
 import type {DurationFormatOptions} from './duration-format-ponyfill.js'
+import {createCache} from './intl-cache.js'
 const durationRe = /^[-+]?P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/
+
+// `DurationFormat` normalizes its options on construction, so reuse one instance
+// per (locale, options) combination rather than rebuilding it on every format.
+const durationFormats = createCache<DurationFormat>()
+
+// The option fields `DurationFormat` recognizes, in a fixed order. The cache key
+// is built by reading only these fields so it is a faithful, semantic key: it
+// ignores unrelated properties and never invokes caller-defined `toJSON`
+// (unlike `JSON.stringify`), which would otherwise mis-key formatters or throw
+// on circular structures for this public API.
+const durationFormatOptionFields = [
+  'style',
+  'years',
+  'yearsDisplay',
+  'months',
+  'monthsDisplay',
+  'weeks',
+  'weeksDisplay',
+  'days',
+  'daysDisplay',
+  'hours',
+  'hoursDisplay',
+  'minutes',
+  'minutesDisplay',
+  'seconds',
+  'secondsDisplay',
+  'milliseconds',
+  'millisecondsDisplay',
+] as const
+
+function durationFormatKey(locale: string, opts: DurationFormatOptions): string {
+  let key = locale
+  for (const field of durationFormatOptionFields) {
+    key += `\u0000${opts[field] ?? ''}`
+  }
+  return key
+}
 export const unitNames = ['year', 'month', 'week', 'day', 'hour', 'minute', 'second', 'millisecond'] as const
 export type Unit = typeof unitNames[number]
 
@@ -80,7 +118,10 @@ export class Duration {
   }
 
   toLocaleString(locale: string, opts: DurationFormatOptions) {
-    return new DurationFormat(locale, opts).format(this)
+    const key = durationFormatKey(locale, opts)
+    let format = durationFormats.get(key)
+    if (!format) durationFormats.set(key, (format = new DurationFormat(locale, opts)))
+    return format.format(this)
   }
 }
 
